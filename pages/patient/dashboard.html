@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Patient Dashboard | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('patient');
+    renderDashboardShell({ role: 'patient', navItems: PATIENT_NAV, activeHref: 'dashboard.html', pageTitle: 'Patient Dashboard' });
+
+    function renderContent() {
+      const user = getCurrentUser();
+      const allAppointments = MediConnectDB.getAppointments({ patientId: user.id });
+      const upcoming = allAppointments.filter(a => a.status === 'pending' || a.status === 'confirmed');
+      const prescriptions = MediConnectDB.getPrescriptions({ patientId: user.id });
+      const nextAppt = upcoming[0];
+      const doctor = nextAppt ? MediConnectDB.getDoctorById(nextAppt.doctorId) : null;
+
+      document.getElementById('content-area').innerHTML = `
+        <div class="stat-grid">
+          <div class="card stat-box">
+            <div class="num">${upcoming.length}</div>
+            <div class="label">Upcoming Appointments</div>
+          </div>
+          <div class="card stat-box">
+            <div class="num">${prescriptions.length}</div>
+            <div class="label">Prescriptions</div>
+          </div>
+          <div class="card stat-box">
+            <div class="num">${allAppointments.length}</div>
+            <div class="label">Total Visits</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Next Appointment</h3></div>
+          ${nextAppt ? `
+            <div class="flex-row gap-md">
+             ${doctorAvatarHTML(doctor, 'avatar-lg')}
+              <div style="flex:1;">
+                <strong>${doctor.name}</strong><br>
+                <span style="color:var(--text-gray); font-size:13px;">
+  ${doctor.specialization} &middot; ${nextAppt.date} at ${nextAppt.time} &middot; Home Visit<br>
+  <i class="fa-solid fa-location-dot"></i> ${nextAppt.address || 'Not provided'}
+</span>
+              </div>
+              <span class="badge badge-${nextAppt.status}">${nextAppt.status}</span>
+            </div>
+          ` : `
+            <div class="empty-state">
+              <i class="fa-solid fa-calendar-xmark"></i>
+              <h4>No upcoming appointments</h4>
+              <p>Book a doctor to get started.</p>
+            </div>
+          `}
+        </div>
+
+        <div class="mt-lg flex-row gap-md">
+          <a href="find-doctors.html" class="btn btn-primary"><i class="fa-solid fa-user-doctor"></i> Find a Doctor</a>
+          <a href="appointments.html" class="btn btn-secondary"><i class="fa-solid fa-calendar-check"></i> View Appointments</a>
+        </div>
+      `;
+    }
+   withLoading('content-area', renderContent);
+  </script>
+</body>
+</html>

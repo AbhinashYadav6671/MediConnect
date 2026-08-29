@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Doctor Dashboard | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('doctor');
+    renderDashboardShell({ role: 'doctor', navItems: DOCTOR_NAV, activeHref: 'dashboard.html', pageTitle: 'Doctor Dashboard' });
+
+    const user = getCurrentUser();
+    const all = MediConnectDB.getAppointments({ doctorId: user.id });
+    const pending = all.filter(a => a.status === 'pending');
+    const confirmed = all.filter(a => a.status === 'confirmed');
+    const uniquePatients = [...new Set(all.map(a => a.patientId))];
+
+    function renderContent() {
+      document.getElementById('content-area').innerHTML = `
+        <div class="stat-grid">
+          <div class="card stat-box">
+            <div class="num">${pending.length}</div>
+            <div class="label">Pending Requests</div>
+          </div>
+          <div class="card stat-box">
+            <div class="num">${confirmed.length}</div>
+            <div class="label">Confirmed Appointments</div>
+          </div>
+          <div class="card stat-box">
+            <div class="num">${uniquePatients.length}</div>
+            <div class="label">Total Patients</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Upcoming Schedule</h3></div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Patient</th><th>Date</th><th>Time</th><th>Status</th></tr></thead>
+              <tbody>
+                ${confirmed.length === 0 ? '' : confirmed.map(a => {
+                  const p = MediConnectDB.getPatientById(a.patientId);
+                  return `<tr>
+                    <td>${p ? p.name : 'Unknown'}</td>
+                    <td>${a.date}</td><td>${a.time}</td>
+                    <td><span class="badge badge-confirmed">confirmed</span></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+            ${confirmed.length === 0 ? `
+              <div class="empty-state">
+                <i class="fa-solid fa-calendar-xmark"></i>
+                <h4>Nothing scheduled yet</h4>
+                <p>Accept a pending request to see it here.</p>
+              </div>` : ''}
+          </div>
+        </div>
+
+        <div class="mt-lg">
+          <a href="appointments.html" class="btn btn-primary"><i class="fa-solid fa-calendar-check"></i> View Appointment Requests</a>
+        </div>
+      `;
+    }
+    withLoading('content-area', renderContent);
+  </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/modal.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('admin');
+    renderDashboardShell({ role: 'admin', navItems: ADMIN_NAV, activeHref: 'dashboard.html', pageTitle: 'Admin Dashboard' });
+
+    const patients = MediConnectDB.getAllPatients();
+    const doctors = MediConnectDB.getAllDoctors();
+    const appointments = MediConnectDB.getAppointments();
+    const prescriptions = MediConnectDB.getPrescriptions();
+    const pendingDoctors = doctors.filter(d => d.status === 'pending');
+
+    const recent = [...appointments].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+    
+    document.getElementById('content-area').innerHTML = `
+      <div class="stat-grid">
+        <div class="card stat-box"><div class="num">${patients.length}</div><div class="label">Total Patients</div></div>
+        <div class="card stat-box"><div class="num">${doctors.length}</div><div class="label">Total Doctors</div></div>
+        <div class="card stat-box"><div class="num">${appointments.length}</div><div class="label">Total Appointments</div></div>
+        <div class="card stat-box"><div class="num">${prescriptions.length}</div><div class="label">Total Prescriptions</div></div>
+      </div>
+
+      ${pendingDoctors.length > 0 ? `
+        <div class="alert alert-info">
+          <i class="fa-solid fa-circle-info"></i>
+          ${pendingDoctors.length} doctor registration${pendingDoctors.length > 1 ? 's' : ''} awaiting approval.
+          <a href="doctors.html" style="margin-left:auto; font-weight:600;">Review now &rarr;</a>
+        </div>
+      ` : ''}
+
+      <div class="card">
+        <div class="card-header"><h3>Recent Appointments</h3></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Patient</th><th>Doctor</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody>
+              ${recent.map(a => {
+                const p = MediConnectDB.getPatientById(a.patientId);
+                const d = MediConnectDB.getDoctorById(a.doctorId);
+                return `<tr>
+                  <td>${p ? p.name : 'Unknown'}</td>
+                  <td>${d ? d.name : 'Unknown'}</td>
+                  <td>${a.date}</td>
+                  <td><span class="badge badge-${a.status}">${a.status}</span></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  </script>
+</body>
+</html>

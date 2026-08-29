@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Appointments | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="tabs">
+          <button class="tab active" id="tab-pending" onclick="switchTab('pending')">Pending</button>
+          <button class="tab" id="tab-confirmed" onclick="switchTab('confirmed')">Confirmed</button>
+          <button class="tab" id="tab-completed" onclick="switchTab('completed')">Completed</button>
+        </div>
+        <div class="card table-wrap" id="table-wrap">
+          <table class="table">
+            <thead><tr><th>Patient</th><th>Date</th><th>Time</th><th>Notes</th><th>Action</th></tr></thead>
+            <tbody id="appt-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card empty-state" id="empty-state" style="display:none;">
+          <i class="fa-solid fa-calendar-xmark"></i>
+          <h4>Nothing here yet</h4>
+          <p>Appointments in this category will show up here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/modal.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('doctor');
+    renderDashboardShell({ role: 'doctor', navItems: DOCTOR_NAV, activeHref: 'appointments.html', pageTitle: 'Appointment Requests' });
+
+    let currentTab = 'pending';
+
+    function renderList() {
+      const user = getCurrentUser();
+      const list = MediConnectDB.getAppointments({ doctorId: user.id, status: currentTab });
+
+      const tableWrap = document.getElementById('table-wrap');
+      const emptyState = document.getElementById('empty-state');
+
+      if (list.length === 0) {
+        tableWrap.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+      }
+      tableWrap.style.display = 'block';
+      emptyState.style.display = 'none';
+
+      document.getElementById('appt-tbody').innerHTML = list.map(a => {
+        const p = MediConnectDB.getPatientById(a.patientId);
+        let actionHTML = '';
+        if (currentTab === 'pending') {
+          actionHTML = `
+            <button class="btn btn-primary action-btn-sm" onclick="accept('${a.id}')">Accept</button>
+            <button class="btn btn-outline action-btn-sm" onclick="reject('${a.id}')">Reject</button>`;
+        } else if (currentTab === 'confirmed') {
+          actionHTML = `
+            <a href="create-prescription.html?appointmentId=${a.id}" class="btn btn-primary action-btn-sm">Start Consultation</a>
+            <button class="btn btn-outline action-btn-sm" onclick="cancel('${a.id}')">Cancel</button>`;
+        } else {
+          actionHTML = `<span style="color:var(--text-gray); font-size:12.5px;">Completed</span>`;
+        }
+        return `
+          <tr>
+            <td>${p ? p.name : 'Unknown'}</td>
+            <td>${a.date}</td><td>${a.time}</td>
+            <td style="max-width:180px; font-size:12.5px; color:var(--text-gray);">${a.notes || '—'}</td>
+            <td class="flex-row gap-sm">
+  <button class="btn btn-outline action-btn-sm" onclick="viewAppointmentDetails('${a.id}')">View</button>
+  ${actionHTML}
+</td>
+          </tr>`;
+      }).join('');
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      renderList();
+    }
+
+    function accept(id) {
+      MediConnectDB.updateAppointmentStatus(id, 'confirmed');
+      showToast('Appointment accepted.');
+      renderList();
+    }
+    function reject(id) {
+      MediConnectDB.updateAppointmentStatus(id, 'cancelled');
+      showToast('Appointment rejected.');
+      renderList();
+    }
+    function cancel(id) {
+      MediConnectDB.updateAppointmentStatus(id, 'cancelled');
+      showToast('Appointment cancelled.');
+      renderList();
+    }
+
+    renderList();
+  </script>
+</body>
+</html>

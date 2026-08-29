@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Appointments | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div id="payment-banner"></div>
+
+        <div class="tabs">
+          <button class="tab active" id="tab-upcoming" onclick="switchTab('upcoming')">Upcoming</button>
+          <button class="tab" id="tab-history" onclick="switchTab('history')">History</button>
+          <button class="tab" id="tab-cancelled" onclick="switchTab('cancelled')">Cancelled</button>
+        </div>
+
+        <div class="card table-wrap" id="appt-table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Doctor</th><th>Date</th><th>Time</th><th>Status</th><th>Payment</th><th>Action</th></tr>
+            </thead>
+            <tbody id="appt-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="card empty-state" id="appt-empty" style="display:none;">
+          <i class="fa-solid fa-calendar-xmark"></i>
+          <h4>Nothing here yet</h4>
+          <p>Appointments in this category will show up here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/modal.js"></script>
+  <script>
+    requireAuth('patient');
+    renderDashboardShell({ role: 'patient', navItems: PATIENT_NAV, activeHref: 'appointments.html', pageTitle: 'My Appointments' });
+
+    let currentTab = 'upcoming';
+
+    function renderPaymentBanner() {
+      const user = getCurrentUser();
+      const unpaidConfirmed = MediConnectDB.getAppointments({ patientId: user.id, status: 'confirmed' })
+        .filter(a => a.paymentStatus === 'unpaid');
+
+      if (unpaidConfirmed.length === 0) {
+        document.getElementById('payment-banner').innerHTML = '';
+        return;
+      }
+      document.getElementById('payment-banner').innerHTML = unpaidConfirmed.map(a => {
+        const d = MediConnectDB.getDoctorById(a.doctorId);
+        return `
+          <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info"></i>
+            Your appointment with ${d.name} on ${a.date} is confirmed. Payment is required to complete booking.
+            <a href="payment.html?appointmentId=${a.id}" class="btn btn-primary action-btn-sm" style="margin-left:auto;">Pay Now</a>
+          </div>`;
+      }).join('');
+    }
+
+    function renderAppointments() {
+      const user = getCurrentUser();
+      let list = MediConnectDB.getAppointments({ patientId: user.id });
+
+      if (currentTab === 'upcoming') list = list.filter(a => a.status === 'pending' || a.status === 'confirmed');
+      if (currentTab === 'history') list = list.filter(a => a.status === 'completed');
+      if (currentTab === 'cancelled') list = list.filter(a => a.status === 'cancelled');
+
+      const tableWrap = document.getElementById('appt-table-wrap');
+      const emptyState = document.getElementById('appt-empty');
+
+      if (list.length === 0) {
+        tableWrap.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+      }
+      tableWrap.style.display = 'block';
+      emptyState.style.display = 'none';
+
+      document.getElementById('appt-tbody').innerHTML = list.map(a => {
+        const doctor = MediConnectDB.getDoctorById(a.doctorId);
+        const canCancel = a.status === 'pending' || a.status === 'confirmed';
+        return `
+          <tr>
+            <td>${doctor ? doctor.name : 'Unknown'}</td>
+            <td>${a.date}</td>
+            <td>${a.time}</td>
+            <td><span class="badge badge-${a.status}">${a.status}</span></td>
+            <td><span class="badge badge-${a.paymentStatus}">${a.paymentStatus}</span></td>
+            <td class="flex-row gap-sm">
+              <button class="btn btn-outline action-btn-sm" onclick="viewAppointmentDetails('${a.id}')">View</button>
+              ${a.status === 'confirmed' && a.paymentStatus === 'unpaid' ? `<a href="payment.html?appointmentId=${a.id}" class="btn btn-primary action-btn-sm">Pay Now</a>` : ''}
+              ${canCancel ? `<button class="btn btn-outline action-btn-sm" onclick="cancelAppointment('${a.id}')">Cancel</button>` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      renderAppointments();
+    }
+
+    function cancelAppointment(id) {
+      MediConnectDB.updateAppointmentStatus(id, 'cancelled');
+      showToast('Appointment cancelled.');
+      renderAppointments();
+      renderPaymentBanner();
+    }
+
+    renderAppointments();
+    renderPaymentBanner();
+  </script>
+</body>
+</html>

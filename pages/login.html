@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log In | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">Medi<span>Connect</span></div>
+
+      <div class="tabs" id="role-tabs">
+        <button type="button" class="tab active" data-tab="patient">Patient</button>
+        <button type="button" class="tab" data-tab="doctor">Doctor</button>
+        <button type="button" class="tab" data-tab="admin">Admin</button>
+      </div>
+
+      <div id="alert-box"></div>
+
+      <!-- Patient: Login -->
+      <form class="auth-form" id="patient-login-form">
+        <h3>Patient Login</h3>
+        <div class="form-group">
+          <label class="form-label">Email or Phone</label>
+          <input type="text" class="form-input" id="pl-email" placeholder="you@example.com or 98XXXXXXXX">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="pl-password" placeholder="Enter password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Log In</button>
+        <p class="auth-switch">New patient? <a href="#" id="show-register">Create an account</a></p>
+        <div class="auth-demo-hint">Demo: sita@example.com / patient123</div>
+      </form>
+
+      <!-- Patient: Register -->
+      <form class="auth-form" id="patient-register-form" style="display:none;">
+        <h3>Create Patient Account</h3>
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-input" id="pr-name" placeholder="e.g. Sita Rai">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" id="pr-email" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" class="form-input" id="pr-phone" placeholder="98XXXXXXXX">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="pr-password" placeholder="At least 6 characters">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <input type="password" class="form-input" id="pr-confirm" placeholder="Re-enter password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Create Account</button>
+        <p class="auth-switch">Already have an account? <a href="#" id="show-login">Log in</a></p>
+      </form>
+
+      <!-- Doctor: Login only -->
+      <form class="auth-form" id="doctor-login-form" style="display:none;">
+        <h3>Doctor Login</h3>
+        <div class="form-group">
+          <label class="form-label">Email or Phone</label>
+          <input type="text" class="form-input" id="dl-email" placeholder="you@mediconnect.com or 98XXXXXXXX">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="dl-password" placeholder="Enter password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Log In</button>
+        <div class="auth-demo-hint">Demo: ramesh@mediconnect.com / doctor123</div>
+      </form>
+
+      <!-- Admin: Login only -->
+      <form class="auth-form" id="admin-login-form" style="display:none;">
+        <h3>Admin Login</h3>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" id="al-email" placeholder="admin@mediconnect.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="al-password" placeholder="Enter password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Log In</button>
+        <div class="auth-demo-hint">Demo: admin@mediconnect.com / admin123</div>
+      </form>
+
+      <a href="../index.html" class="back-home"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+    </div>
+  </div>
+
+  <script src="../js/session.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/validate.js"></script>
+  <script>
+    const tabs = document.querySelectorAll('#role-tabs .tab');
+    const forms = {
+      patient: document.getElementById('patient-login-form'),
+      doctor: document.getElementById('doctor-login-form'),
+      admin: document.getElementById('admin-login-form'),
+    };
+    const registerForm = document.getElementById('patient-register-form');
+
+    function showTab(role) {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === role));
+      Object.values(forms).forEach(f => f.style.display = 'none');
+      registerForm.style.display = 'none';
+      forms[role].style.display = 'block';
+      clearAlert();
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
+
+    document.getElementById('show-register').addEventListener('click', (e) => {
+      e.preventDefault();
+      forms.patient.style.display = 'none';
+      registerForm.style.display = 'block';
+      clearAlert();
+    });
+    document.getElementById('show-login').addEventListener('click', (e) => {
+      e.preventDefault();
+      registerForm.style.display = 'none';
+      forms.patient.style.display = 'block';
+      clearAlert();
+    });
+
+    function showAlert(message, type = 'error') {
+      document.getElementById('alert-box').innerHTML = `
+        <div class="alert alert-${type}">
+          <i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i> ${message}
+        </div>`;
+    }
+    function clearAlert() {
+      document.getElementById('alert-box').innerHTML = '';
+    }
+
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    forms.patient.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const identifier = document.getElementById('pl-email').value.trim();
+      const password = document.getElementById('pl-password').value;
+      if (!identifier || !password) {
+        showAlert('Please enter your email/phone and password.');
+        return;
+      }
+      const result = MediConnectDB.loginPatient(identifier, password);
+      if (!result.success) { showAlert(result.message); return; }
+      setCurrentUser('patient', result.user.id);
+      window.location.href = 'patient/dashboard.html';
+    });
+
+    registerForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('pr-name').value.trim();
+      const email = document.getElementById('pr-email').value.trim();
+      const phone = document.getElementById('pr-phone').value.trim();
+      const password = document.getElementById('pr-password').value;
+      const confirm = document.getElementById('pr-confirm').value;
+
+      clearAllFieldErrors(['pr-name', 'pr-email', 'pr-phone', 'pr-password', 'pr-confirm']);
+      if (!name) { setFieldError('pr-name', 'Please enter your full name.'); return; }
+      if (!isValidEmail(email)) { setFieldError('pr-email', 'Please enter a valid email address.'); return; }
+      if (phone.length < 7) { setFieldError('pr-phone', 'Please enter a valid phone number.'); return; }
+      if (password.length < 6) { setFieldError('pr-password', 'Must be at least 6 characters.'); return; }
+      if (password !== confirm) { setFieldError('pr-confirm', 'Passwords do not match.'); return; }
+
+      const result = MediConnectDB.registerPatient({ name, email, phone, password });
+      if (!result.success) { showAlert(result.message); return; }
+      setCurrentUser('patient', result.user.id);
+      window.location.href = 'patient/dashboard.html';
+    });
+
+    forms.doctor.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const identifier = document.getElementById('dl-email').value.trim();
+      const password = document.getElementById('dl-password').value;
+      if (!identifier || !password) {
+        showAlert('Please enter your email/phone and password.');
+        return;
+      }
+      const result = MediConnectDB.loginDoctor(identifier, password);
+      if (!result.success) { showAlert(result.message); return; }
+      setCurrentUser('doctor', result.user.id);
+      window.location.href = 'doctor/dashboard.html';
+    });
+
+    forms.admin.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('al-email').value.trim();
+      const password = document.getElementById('al-password').value;
+      if (!isValidEmail(email) || !password) {
+        showAlert('Please enter a valid email and password.');
+        return;
+      }
+      const result = MediConnectDB.loginAdmin(email, password);
+      if (!result.success) { showAlert(result.message); return; }
+      setCurrentUser('admin', result.user.id);
+      window.location.href = 'admin/dashboard.html';
+    });
+
+    const initialRole = new URLSearchParams(window.location.search).get('role');
+    if (initialRole && forms[initialRole]) showTab(initialRole);
+  </script>
+</body>
+</html>

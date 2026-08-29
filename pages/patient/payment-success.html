@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Payment Successful | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    requireAuth('patient');
+    renderDashboardShell({ role: 'patient', navItems: PATIENT_NAV, activeHref: 'appointments.html', pageTitle: 'Payment Confirmation' });
+
+    const appointmentId = new URLSearchParams(window.location.search).get('appointmentId');
+    const appt = MediConnectDB.getAppointmentById(appointmentId);
+    const doctor = appt ? MediConnectDB.getDoctorById(appt.doctorId) : null;
+
+    document.getElementById('content-area').innerHTML = !appt ? `
+      <div class="card empty-state">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <h4>Appointment not found</h4>
+      </div>` : `
+      <div class="card" style="max-width:480px; margin:0 auto; text-align:center;">
+        <div style="width:60px; height:60px; background:var(--mid-green); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+          <i class="fa-solid fa-check" style="color:white; font-size:26px;"></i>
+        </div>
+        <h2 style="color:var(--dark-green); margin-bottom:6px;">Payment Successful!</h2>
+        <p style="color:var(--text-gray); font-size:14px; margin-bottom:16px;">Your appointment payment has been successfully processed.</p>
+        <span class="badge badge-paid" style="margin-bottom:20px; display:inline-block;">Payment Confirmed</span>
+
+        <div class="card" style="background:var(--pale-green); border:none; text-align:left;">
+          <div class="flex-row" style="justify-content:space-between; margin-bottom:8px;"><strong>Doctor</strong><span>${doctor.name}</span></div>
+          <div class="flex-row" style="justify-content:space-between; margin-bottom:8px;"><strong>Specialization</strong><span>${doctor.specialization}</span></div>
+          <div class="flex-row" style="justify-content:space-between; margin-bottom:8px;"><strong>Date</strong><span>${appt.date}</span></div>
+          <div class="flex-row" style="justify-content:space-between; margin-bottom:8px;"><strong>Time</strong><span>${appt.time}</span></div>
+          <div class="flex-row" style="justify-content:space-between; margin-bottom:8px;"><strong>Payment Method</strong><span>${appt.paymentMethod}</span></div>
+          <div class="flex-row" style="justify-content:space-between; margin-bottom:8px;"><strong>Amount Paid</strong><span>Rs. ${appt.amountPaid}</span></div>
+          <div class="flex-row" style="justify-content:space-between;"><strong>Transaction ID</strong><span>${appt.transactionId}</span></div>
+        </div>
+
+        <div class="flex-row gap-sm mt-lg" style="justify-content:center;">
+          <a href="appointments.html" class="btn btn-primary">View Appointment</a>
+          <a href="dashboard.html" class="btn btn-outline">Back to Dashboard</a>
+        </div>
+        <p style="font-size:11.5px; color:var(--text-gray); margin-top:14px;">Please keep your transaction ID for future reference.</p>
+      </div>
+    `;
+  </script>
+</body>
+</html>

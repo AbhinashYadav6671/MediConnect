@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Profile | MediConnect</title>
+  
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="card" style="max-width:640px; margin:0 auto;" id="profile-card"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script>
+    requireAuth('doctor');
+    renderDashboardShell({ role: 'doctor', navItems: DOCTOR_NAV, activeHref: 'profile.html', pageTitle: 'My Profile' });
+
+    const user = getCurrentUser();
+    const doctor = MediConnectDB.getDoctorById(user.id);
+    let pendingPhotoUrl = doctor.photoUrl || null;
+
+    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const availableDaySet = new Set(doctor.availability.map(s => s.day));
+    const firstSlot = doctor.availability[0] || { start: '09:00', end: '13:00' };
+
+    document.getElementById('profile-card').innerHTML = `
+  <div class="card-header"><h3>Edit Profile</h3></div>
+
+  <div style="text-align:center; margin-bottom:18px;">
+    <div id="photo-preview" style="margin:0 auto 10px;"></div>
+    <input type="file" id="p-photo-input" accept="image/*" style="display:none;">
+    <button type="button" class="btn btn-outline action-btn-sm" id="choose-photo-btn">Change Photo</button>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input type="text" class="form-input" id="p-name" value="${doctor.name}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">NMC Number</label>
+      <input type="text" class="form-input" id="p-nmc" value="${doctor.nmcNumber || ''}" placeholder="e.g. NMC-12345">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Specialization</label>
+      <input type="text" class="form-input" id="p-specialization" value="${doctor.specialization}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Hospital / Clinic</label>
+      <input type="text" class="form-input" id="p-hospital" value="${doctor.hospital}">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Experience (years)</label>
+      <input type="number" class="form-input" id="p-experience" value="${doctor.experienceYears}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Consultation Fee (Rs.)</label>
+      <input type="number" class="form-input" id="p-fee" value="${doctor.fee}">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">About You</label>
+    <textarea class="form-textarea" id="p-bio" placeholder="Where you work, your specialties, awards...">${doctor.bio || ''}</textarea>
+    <span class="form-hint">Shown to patients on your public profile.</span>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Available Days</label>
+    <div class="flex-row gap-sm" style="flex-wrap:wrap;">
+      ${DAYS.map(d => `
+        <label class="flex-row gap-sm" style="font-size:13px; border:1px solid var(--border); padding:6px 10px; border-radius:6px;">
+          <input type="checkbox" class="avail-day" value="${d}" ${availableDaySet.has(d) ? 'checked' : ''}> ${d}
+        </label>
+      `).join('')}
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Start Time</label>
+      <input type="time" class="form-input" id="p-avail-start" value="${firstSlot.start}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">End Time</label>
+      <input type="time" class="form-input" id="p-avail-end" value="${firstSlot.end}">
+    </div>
+  </div>
+  <span class="form-hint">Same hours apply to every day you check above.</span>
+
+  <div class="form-group">
+    <label class="form-label">Rating</label>
+    <div style="padding:6px 0; color:#b45309; font-weight:600;">
+      <i class="fa-solid fa-star" style="color:#f5a623;"></i> ${doctor.rating.toFixed(1)}
+      <span style="color:var(--text-gray); font-weight:400; font-size:13px;"> (${doctor.reviewCount} patient reviews — earned through completed visits)</span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" style="width:100%; margin-top:10px;" id="save-profile-btn">Save Changes</button>
+`;
+    function renderPhotoPreview() {
+      document.getElementById('photo-preview').innerHTML = pendingPhotoUrl
+        ? `<img src="${pendingPhotoUrl}" style="width:84px;height:84px;border-radius:50%;object-fit:cover;">`
+        : `<div class="avatar avatar-lg" style="margin:0 auto;">${doctor.name.split(' ').slice(-1)[0][0]}</div>`;
+    }
+    renderPhotoPreview();
+
+    document.getElementById('choose-photo-btn').addEventListener('click', () => {
+      document.getElementById('p-photo-input').click();
+    });
+   document.getElementById('p-photo-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    pendingPhotoUrl = await compressImage(file, 300, 0.75);
+    renderPhotoPreview();
+  } catch (err) {
+    showToast('Could not process that image. Try a different one.', 'error');
+  }
+});
+
+    document.getElementById('save-profile-btn').addEventListener('click', () => {
+      const checkedDays = [...document.querySelectorAll('.avail-day:checked')].map(el => el.value);
+      const start = document.getElementById('p-avail-start').value;
+      const end = document.getElementById('p-avail-end').value;
+
+      if (checkedDays.length === 0) {
+        showToast('Please select at least one available day.', 'error');
+        return;
+      }
+      if (!start || !end || start >= end) {
+        showToast('Please set a valid start and end time.', 'error');
+        return;
+      }
+
+      const availability = checkedDays.map(day => ({ day, start, end }));
+
+      MediConnectDB.updateDoctorProfile(doctor.id, {
+        name: document.getElementById('p-name').value,
+        nmcNumber: document.getElementById('p-nmc').value,
+        specialization: document.getElementById('p-specialization').value,
+        experienceYears: parseInt(document.getElementById('p-experience').value, 10),
+        fee: parseInt(document.getElementById('p-fee').value, 10),
+        hospital: document.getElementById('p-hospital').value,
+        bio: document.getElementById('p-bio').value,
+        photoUrl: pendingPhotoUrl,
+        availability,
+      });
+      showToast('Profile updated successfully.');
+    });
+  </script>
+</body>
+</html>

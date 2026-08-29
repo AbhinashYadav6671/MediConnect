@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Health Records | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div style="display:flex; gap:18px; flex-wrap:wrap;">
+          <div class="card" style="flex:1; min-width:300px;">
+            <div class="card-header"><h3>Appointment History</h3></div>
+            <div id="appt-history"></div>
+          </div>
+          <div class="card" style="flex:1; min-width:300px;">
+            <div class="card-header"><h3>Prescription History</h3></div>
+            <div id="rx-history"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('patient');
+    renderDashboardShell({ role: 'patient', navItems: PATIENT_NAV, activeHref: 'health-records.html', pageTitle: 'Health Records' });
+
+    const user = getCurrentUser();
+    const appointments = MediConnectDB.getAppointments({ patientId: user.id });
+    const prescriptions = MediConnectDB.getPrescriptions({ patientId: user.id });
+
+    document.getElementById('appt-history').innerHTML = appointments.length ? appointments.map(a => {
+      const d = MediConnectDB.getDoctorById(a.doctorId);
+      return `
+        <div style="padding:10px 0; border-bottom:1px solid var(--border); font-size:13.5px;">
+          <strong>${d ? d.name : 'Unknown'}</strong> &middot; ${a.date} at ${a.time}
+          <span class="badge badge-${a.status}" style="margin-left:6px;">${a.status}</span>
+        </div>`;
+    }).join('') : `<p style="color:var(--text-gray); font-size:13.5px;">No appointments yet.</p>`;
+
+    document.getElementById('rx-history').innerHTML = prescriptions.length ? prescriptions.map(rx => {
+      const d = MediConnectDB.getDoctorById(rx.doctorId);
+      return `
+        <div style="padding:10px 0; border-bottom:1px solid var(--border); font-size:13.5px;">
+          <strong>${rx.diagnosis}</strong> &middot; ${rx.createdAt}<br>
+          <span style="color:var(--text-gray);">${d ? d.name : 'Unknown'} &middot; ${rx.medicines.map(m => m.name).join(', ')}</span>
+        </div>`;
+    }).join('') : `<p style="color:var(--text-gray); font-size:13.5px;">No prescriptions yet.</p>`;
+  </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Doctor Profile | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/validate.js"></script>
+  <script>
+    requireAuth('patient');
+    renderDashboardShell({ role: 'patient', navItems: PATIENT_NAV, activeHref: 'find-doctors.html', pageTitle: 'Doctor Profile' });
+
+    const params = new URLSearchParams(window.location.search);
+    const doctorId = params.get('doctorId');
+    const doctor = MediConnectDB.getDoctorById(doctorId);
+    const contentArea = document.getElementById('content-area');
+
+    if (!doctor) {
+      contentArea.innerHTML = `
+        <div class="card empty-state">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <h4>Doctor not found</h4>
+          <p><a href="find-doctors.html">Go back to Find Doctors</a></p>
+        </div>`;
+    } else {
+      const availabilityText = doctor.availability
+        .map(s => `${s.day}: ${formatTimeStr(s.start)} \u2013 ${formatTimeStr(s.end)}`)
+        .join('<br>');
+
+      contentArea.innerHTML = `
+        <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap;">
+          <div class="card" style="flex:1; min-width:280px; text-align:center;">
+  <div style="display:flex; justify-content:center; margin-bottom:6px;">${doctorAvatarHTML(doctor, 'avatar-lg')}</div>
+  <h3 style="margin-top:10px;">${doctor.name}</h3>
+            <div class="specialization" style="margin-bottom:6px;">${doctor.specialization}</div>
+            <div class="nmc-tag" style="margin-bottom:8px;">NMC: ${doctor.nmcNumber}</div>
+            <div class="rating-row" style="justify-content:center; display:flex; margin-bottom:10px;">
+              <i class="fa-solid fa-star"></i> ${doctor.rating.toFixed(1)} <span class="review-count">(${doctor.reviewCount} reviews)</span>
+            </div>
+            <div class="hospital-tag" style="text-align:center; margin-bottom:14px;"><i class="fa-solid fa-hospital"></i> ${doctor.hospital}</div>
+
+            <div style="text-align:left; font-size:13px; color:var(--text-dark); margin-bottom:14px;">
+              <strong>About</strong>
+              <p style="color:var(--text-gray); margin-top:4px;">${doctor.bio || 'No information provided.'}</p>
+            </div>
+
+            <div style="text-align:left; font-size:13px; color:var(--text-gray);">
+              <strong style="color:var(--text-dark); display:block; margin-bottom:6px;">Availability</strong>
+              ${availabilityText}
+            </div>
+          </div>
+
+          <div class="card" style="flex:1.2; min-width:300px;">
+            <div class="card-header"><h3>Book Home Visit</h3></div>
+
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input type="date" class="form-input" id="booking-date">
+              <span class="form-hint" id="availability-hint"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Time</label>
+              <div class="flex-row gap-sm">
+                <select class="form-select" id="booking-hour" style="width:70px;">
+                  ${[1,2,3,4,5,6,7,8,9,10,11,12].map(h => `<option value="${h}">${h}</option>`).join('')}
+                </select>
+                <select class="form-select" id="booking-minute" style="width:75px;">
+                  <option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option>
+                </select>
+                <select class="form-select" id="booking-ampm" style="width:80px;">
+                  <option value="AM">AM</option><option value="PM">PM</option>
+                </select>
+              </div>
+              <span class="form-error" id="time-error"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Your Home Address</label>
+              <textarea class="form-textarea" id="booking-address" placeholder="e.g. House 12, Baneshwor, Kathmandu" style="min-height:60px;"></textarea>
+              <span class="form-hint">The doctor will visit you at this address.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes (optional)</label>
+              <textarea class="form-textarea" id="booking-notes" placeholder="Anything the doctor should know..."></textarea>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%;" id="confirm-booking-btn">Confirm Booking</button>
+          </div>
+        </div>
+      `;
+
+      const dateInput = document.getElementById('booking-date');
+      const hint = document.getElementById('availability-hint');
+
+      dateInput.addEventListener('change', () => {
+        clearFieldError('booking-date');
+        const slot = MediConnectDB.getAvailabilityForDate(doctor.id, dateInput.value);
+        if (!slot) {
+          const days = doctor.availability.map(s => s.day).join(', ');
+          setFieldError('booking-date', `Doctor is not available this day. Available: ${days}`);
+          hint.textContent = '';
+        } else {
+          hint.textContent = `Available ${slot.day}, ${formatTimeStr(slot.start)} \u2013 ${formatTimeStr(slot.end)}`;
+        }
+      });
+
+      document.getElementById('confirm-booking-btn').addEventListener('click', () => {
+        const date = dateInput.value;
+        const hour = parseInt(document.getElementById('booking-hour').value, 10);
+        const minute = document.getElementById('booking-minute').value;
+        const ampm = document.getElementById('booking-ampm').value;
+        const address = document.getElementById('booking-address').value.trim();
+        const notes = document.getElementById('booking-notes').value;
+
+        clearAllFieldErrors(['booking-date', 'booking-address']);
+        document.getElementById('time-error').style.display = 'none';
+
+        let hasError = false;
+        if (!date) { setFieldError('booking-date', 'Please select a date.'); hasError = true; }
+        if (!address) { setFieldError('booking-address', 'Please enter your home address.'); hasError = true; }
+        if (hasError) return;
+
+        const slot = MediConnectDB.getAvailabilityForDate(doctor.id, date);
+        if (!slot) {
+          const days = doctor.availability.map(s => s.day).join(', ');
+          setFieldError('booking-date', `Doctor is not available this day. Available: ${days}`);
+          return;
+        }
+
+        let hour24 = hour % 12;
+        if (ampm === 'PM') hour24 += 12;
+        const chosenMinutes = hour24 * 60 + parseInt(minute, 10);
+        const [startH, startM] = slot.start.split(':').map(Number);
+        const [endH, endM] = slot.end.split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+
+        if (chosenMinutes < startMinutes || chosenMinutes > endMinutes) {
+          const errEl = document.getElementById('time-error');
+          errEl.textContent = `Please choose a time between ${formatTimeStr(slot.start)} and ${formatTimeStr(slot.end)}.`;
+          errEl.style.display = 'block';
+          return;
+        }
+
+        const time = `${hour}:${minute} ${ampm}`;
+        const user = getCurrentUser();
+        MediConnectDB.bookAppointment({ patientId: user.id, doctorId: doctor.id, date, time, address, notes });
+        showToast('Appointment booked successfully!');
+        setTimeout(() => { window.location.href = 'appointments.html'; }, 1200);
+      });
+    }
+  </script>
+</body>
+</html>

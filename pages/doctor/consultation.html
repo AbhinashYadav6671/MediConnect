@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Consultation | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+  </style>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('doctor');
+    renderDashboardShell({ role: 'doctor', navItems: DOCTOR_NAV, activeHref: 'appointments.html', pageTitle: 'Consultation' });
+
+    const appointmentId = new URLSearchParams(window.location.search).get('appointmentId');
+    const appt = MediConnectDB.getAppointmentById(appointmentId);
+    const contentArea = document.getElementById('content-area');
+
+    if (!appt) {
+        contentArea.innerHTML = `
+  <div class="card" style="max-width:640px;">
+    <div class="card-header"><h3>Patient Info</h3></div>
+    <div class="flex-row gap-md" style="margin-bottom:16px;">
+      <div class="avatar avatar-lg">${patient.name[0]}</div>
+      <div>
+        <strong>${patient.name}</strong><br>
+        <span style="color:var(--text-gray); font-size:13px;">${patient.email}</span>
+      </div>
+    </div>
+    <div style="font-size:13px; color:var(--text-gray); margin-bottom:20px;">
+      <strong style="color:var(--text-dark);">Appointment:</strong> ${appt.date} at ${appt.time} &middot; Home Visit<br>
+<strong style="color:var(--text-dark);">Address:</strong> ${appt.address || 'Not provided'}<br>
+      <strong style="color:var(--text-dark);">Patient's Notes:</strong> ${appt.notes || 'None'}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Consultation Notes</label>
+      <textarea class="form-textarea" id="notes-input" placeholder="What was discussed, observations, etc."></textarea>
+    </div>
+    <button class="btn btn-secondary" style="width:100%; margin-bottom:10px;" id="save-notes-btn">Save Notes</button>
+    <a href="create-prescription.html?appointmentId=${appt.id}" class="btn btn-primary" style="width:100%; display:block; text-align:center;">
+      <i class="fa-solid fa-file-prescription"></i> Create Prescription
+    </a>
+  </div> 
+`;
+    } else {
+      const patient = MediConnectDB.getPatientById(appt.patientId);
+      contentArea.innerHTML = `
+        <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap;">
+          <div style="flex:1.4; min-width:320px;">
+            <button class="btn btn-outline mt-lg" style="width:100%;" onclick="window.location.href='appointments.html'">
+              <i class="fa-solid fa-phone-slash"></i> End Consultation
+            </button>
+          </div>
+
+          <div class="card" style="flex:1; min-width:280px;">
+            <div class="card-header"><h3>Patient Info</h3></div>
+            <div class="flex-row gap-md" style="margin-bottom:16px;">
+              <div class="avatar avatar-lg">${patient.name[0]}</div>
+              <div>
+                <strong>${patient.name}</strong><br>
+                <span style="color:var(--text-gray); font-size:13px;">${patient.email}</span>
+              </div>
+            </div>
+            <div style="font-size:13px; color:var(--text-gray); margin-bottom:16px;">
+              <strong style="color:var(--text-dark);">Appointment:</strong> ${appt.date} at ${appt.time}
+              <strong style="color:var(--text-dark);">Patient's Notes:</strong> ${appt.notes || 'None'}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Consultation Notes</label>
+              <textarea class="form-textarea" id="notes-input" placeholder="What was discussed, observations, etc.">${appt.notes && appt.consultationSaved ? appt.notes : ''}</textarea>
+            </div>
+            <button class="btn btn-secondary" style="width:100%; margin-bottom:10px;" id="save-notes-btn">Save Notes</button>
+            <a href="create-prescription.html?appointmentId=${appt.id}" class="btn btn-primary" style="width:100%; display:block; text-align:center;">
+              <i class="fa-solid fa-file-prescription"></i> Create Prescription
+            </a>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('save-notes-btn').addEventListener('click', () => {
+        const notes = document.getElementById('notes-input').value;
+        MediConnectDB.updateAppointmentNotes(appt.id, notes);
+        showToast('Consultation notes saved.');
+      });
+    }
+  </script>
+</body>
+</html>

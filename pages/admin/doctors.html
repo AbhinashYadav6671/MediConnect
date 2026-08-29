@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Doctor Management | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<div class="modal-overlay" id="doctor-modal">
+  <div class="modal" style="width:360px;">
+    <button class="modal-close" onclick="document.getElementById('doctor-modal').classList.remove('active')">&times;</button>
+    <h2>Doctor Details</h2>
+    <div id="doctor-modal-body" style="font-size:13.5px; color:var(--text-dark); line-height:1.9;"></div>
+  </div>
+</div>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="card table-wrap">
+          <table class="table">
+            <thead><tr><th>Doctor</th><th>NMC No.</th><th>Specialization</th><th>Hospital</th><th>Rating</th><th>Fee</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/modal.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('admin');
+    renderDashboardShell({ role: 'admin', navItems: ADMIN_NAV, activeHref: 'doctors.html', pageTitle: 'Doctor Management' });
+
+    function statusBadge(d) {
+      if (d.status === 'pending') return `<span class="badge badge-pending">Pending</span>`;
+      if (d.status === 'rejected') return `<span class="badge badge-cancelled">Rejected</span>`;
+      return `<span class="badge badge-${d.active ? 'active' : 'inactive'}">${d.active ? 'Active' : 'Inactive'}</span>`;
+    }
+
+    function actionButtons(d) {
+  const viewBtn = `<button class="btn btn-outline action-btn-sm" onclick="viewDoctor('${d.id}')">View</button>`;
+  if (d.status === 'pending') {
+    return `${viewBtn}
+      <button class="btn btn-primary action-btn-sm" onclick="approve('${d.id}')">Approve</button>
+      <button class="btn btn-outline action-btn-sm" onclick="reject('${d.id}')">Reject</button>`;
+  }
+  if (d.status === 'rejected') return `${viewBtn}`;
+  return `${viewBtn}
+    <button class="btn btn-outline action-btn-sm" onclick="toggleActive('${d.id}')">
+      ${d.active ? 'Deactivate' : 'Activate'}
+    </button>`;
+}
+function viewDoctor(id) {
+  const d = MediConnectDB.getDoctorById(id);
+  document.getElementById('doctor-modal-body').innerHTML = `
+    <strong>Name:</strong> ${d.name}<br>
+    <strong>Email:</strong> ${d.email}<br>
+    <strong>Specialization:</strong> ${d.specialization}<br>
+    <strong>Experience:</strong> ${d.experienceYears} years<br>
+    <strong>Fee:</strong> Rs. ${d.fee}<br>
+    <strong>NMC Number:</strong> ${d.nmcNumber}<br>
+    <strong>Hospital:</strong> ${d.hospital}<br>
+    <strong>Rating:</strong> ${d.rating.toFixed(1)} \u2b50 (${d.reviewCount} reviews)<br>
+    <strong>About:</strong> ${d.bio || 'Not provided'}<br>
+    <strong>Availability:</strong> ${d.availability.join(', ')}
+  `;
+  document.getElementById('doctor-modal').classList.add('active');
+}
+document.getElementById('doctor-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'doctor-modal') e.target.classList.remove('active');
+});
+
+   function render() {
+  const doctors = MediConnectDB.getAllDoctors();
+document.getElementById('tbody').innerHTML = doctors.map(d => `
+  <tr>
+    <td class="flex-row gap-sm">${doctorAvatarHTML(d, 'avatar')} ${d.name}</td>
+    <td>${d.nmcNumber}</td>
+    <td>${d.specialization}</td>
+    <td>${d.hospital}</td>
+    <td><i class="fa-solid fa-star" style="color:#f5a623;"></i> ${d.rating.toFixed(1)} <span style="color:var(--text-gray); font-size:11.5px;">(${d.reviewCount})</span></td>
+    <td>Rs. ${d.fee}</td>
+    <td>${statusBadge(d)}</td>
+    <td class="flex-row gap-sm">${actionButtons(d)}</td>
+  </tr>
+`).join('');
+}
+
+    function approve(id) {
+      const d = MediConnectDB.approveDoctor(id);
+      showToast(`${d.name} approved.`);
+      withLoading('table-wrap', render);
+    }
+    function reject(id) {
+  const d = MediConnectDB.getDoctorById(id);
+  confirmAction(`Reject ${d.name}'s registration?`, () => {
+    MediConnectDB.rejectDoctor(id);
+    showToast(`${d.name} rejected.`);
+    withLoading('table-wrap', render);
+  });
+}
+function toggleActive(id) {
+  const d = MediConnectDB.getDoctorById(id);
+  if (!d.active) {
+    MediConnectDB.toggleDoctorActive(id);
+    showToast(`${d.name} activated.`);
+   withLoading('table-wrap', render);
+    return;
+  }
+  confirmAction(`Deactivate ${d.name}'s account?`, () => {
+    MediConnectDB.toggleDoctorActive(id);
+    showToast(`${d.name} deactivated.`);
+    withLoading('table-wrap', render);
+  });
+}
+   withLoading('table-wrap', render);
+  </script>
+</body>
+</html>

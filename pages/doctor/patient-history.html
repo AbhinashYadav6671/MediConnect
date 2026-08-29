@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Patient History | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="form-group" style="max-width:300px;">
+          <label class="form-label">Select Patient</label>
+          <select class="form-select" id="patient-select"></select>
+        </div>
+        <div style="display:flex; gap:18px; flex-wrap:wrap;">
+          <div class="card" style="flex:1; min-width:280px;">
+            <div class="card-header"><h3>Past Appointments</h3></div>
+            <div id="past-appointments"></div>
+          </div>
+          <div class="card" style="flex:1; min-width:280px;">
+            <div class="card-header"><h3>Past Prescriptions</h3></div>
+            <div id="past-prescriptions"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('doctor');
+    renderDashboardShell({ role: 'doctor', navItems: DOCTOR_NAV, activeHref: 'patient-history.html', pageTitle: 'Patient History' });
+
+    const user = getCurrentUser();
+    const myAppointments = MediConnectDB.getAppointments({ doctorId: user.id });
+    const patientIds = [...new Set(myAppointments.map(a => a.patientId))];
+    const select = document.getElementById('patient-select');
+
+    if (patientIds.length === 0) {
+      select.innerHTML = `<option>No patients yet</option>`;
+    } else {
+      select.innerHTML = patientIds.map(id => {
+        const p = MediConnectDB.getPatientById(id);
+        return `<option value="${id}">${p ? p.name : id}</option>`;
+      }).join('');
+    }
+
+    function renderHistory() {
+      const patientId = select.value;
+
+      const pastAppts = myAppointments.filter(a => a.patientId === patientId && a.status === 'completed');
+      const pastRx = MediConnectDB.getPrescriptions({ doctorId: user.id, patientId });
+
+      document.getElementById('past-appointments').innerHTML = pastAppts.length ? pastAppts.map(a => `
+        <div style="padding:10px 0; border-bottom:1px solid var(--border); font-size:13.5px;">
+          ${a.date} at ${a.time} &middot; ${a.type =='Home Visit'}
+          ${a.notes ? `<br><span style="color:var(--text-gray);">${a.notes}</span>` : ''}
+        </div>
+      `).join('') : `<p style="color:var(--text-gray); font-size:13.5px;">No past appointments.</p>`;
+
+      document.getElementById('past-prescriptions').innerHTML = pastRx.length ? pastRx.map(rx => `
+        <div style="padding:10px 0; border-bottom:1px solid var(--border); font-size:13.5px;">
+          <strong>${rx.diagnosis}</strong> &middot; ${rx.createdAt}<br>
+          <span style="color:var(--text-gray);">${rx.medicines.map(m => m.name).join(', ')}</span>
+        </div>
+      `).join('') : `<p style="color:var(--text-gray); font-size:13.5px;">No prescriptions issued yet.</p>`;
+    }
+
+    select.addEventListener('change', renderHistory);
+    if (patientIds.length > 0) renderHistory();
+  </script>
+</body>
+</html>

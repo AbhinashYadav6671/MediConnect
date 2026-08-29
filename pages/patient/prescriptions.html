@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prescriptions | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="card table-wrap" id="table-wrap">
+          <table class="table">
+            <thead><tr><th>Date</th><th>Doctor</th><th>Diagnosis</th><th>Action</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="card empty-state" id="empty-state" style="display:none;">
+          <i class="fa-solid fa-file-prescription"></i>
+          <h4>No prescriptions yet</h4>
+          <p>Prescriptions from your consultations will appear here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Prescription detail modal -->
+  <div class="modal-overlay" id="rx-modal">
+    <div class="modal" style="width:420px;">
+      <button class="modal-close" onclick="document.getElementById('rx-modal').classList.remove('active')">&times;</button>
+      <h2>Prescription</h2>
+      <div id="rx-modal-body" style="font-size:13.5px; color:var(--text-dark);"></div>
+    </div>
+  </div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('patient');
+    renderDashboardShell({ role: 'patient', navItems: PATIENT_NAV, activeHref: 'prescriptions.html', pageTitle: 'Prescriptions' });
+
+    const user = getCurrentUser();
+    const prescriptions = MediConnectDB.getPrescriptions({ patientId: user.id });
+
+    const tableWrap = document.getElementById('table-wrap');
+    const emptyState = document.getElementById('empty-state');
+
+    if (prescriptions.length === 0) {
+      tableWrap.style.display = 'none';
+      emptyState.style.display = 'block';
+    } else {
+      document.getElementById('tbody').innerHTML = prescriptions.map(rx => {
+        const doctor = MediConnectDB.getDoctorById(rx.doctorId);
+        return `
+          <tr>
+            <td>${rx.createdAt}</td>
+            <td>${doctor ? doctor.name : 'Unknown'}</td>
+            <td>${rx.diagnosis}</td>
+            <td><button class="btn btn-outline action-btn-sm" onclick="viewRx('${rx.id}')">View</button></td>
+          </tr>`;
+      }).join('');
+    }
+
+    function viewRx(id) {
+      const rx = MediConnectDB.getPrescriptions({ patientId: user.id }).find(r => r.id === id);
+      const doctor = MediConnectDB.getDoctorById(rx.doctorId);
+      document.getElementById('rx-modal-body').innerHTML = `
+        <p><strong>Doctor:</strong> ${doctor.name} (${doctor.specialization})</p>
+        <p><strong>Date:</strong> ${rx.createdAt}</p>
+        <p><strong>Diagnosis:</strong> ${rx.diagnosis}</p>
+        <p><strong>Medicines:</strong></p>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Name</th><th>Dosage</th><th>Frequency</th><th>Duration</th></tr></thead>
+            <tbody>
+              ${rx.medicines.map(m => `<tr><td>${m.name}</td><td>${m.dosage}</td><td>${m.frequency}</td><td>${m.duration}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top:12px;"><strong>Instructions:</strong> ${rx.instructions || 'None'}</p>
+        ${rx.notes ? `<p><strong>Doctor's Notes:</strong> ${rx.notes}</p>` : ''}
+      `;
+      document.getElementById('rx-modal').classList.add('active');
+    }
+
+    document.getElementById('rx-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'rx-modal') e.target.classList.remove('active');
+    });
+  </script>
+</body>
+</html>

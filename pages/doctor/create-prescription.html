@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Prescription | MediConnect</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    .med-row { display:flex; gap:8px; margin-bottom:10px; align-items:center; }
+    .med-row .form-input, .med-row .form-select { margin-bottom:0; }
+  </style>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area" id="content-area"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script>
+    requireAuth('doctor');
+    renderDashboardShell({ role: 'doctor', navItems: DOCTOR_NAV, activeHref: 'appointments.html', pageTitle: 'Consultation & Prescription' });
+
+    const appointmentId = new URLSearchParams(window.location.search).get('appointmentId');
+    const appt = MediConnectDB.getAppointmentById(appointmentId);
+    const contentArea = document.getElementById('content-area');
+
+    if (!appt) {
+      contentArea.innerHTML = `
+        <div class="card empty-state">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <h4>Appointment not found</h4>
+          <p><a href="appointments.html">Go back to Appointments</a></p>
+        </div>`;
+    } else {
+      const patient = MediConnectDB.getPatientById(appt.patientId);
+      const medicineOptions = MediConnectDB.getMedicines()
+        .map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+
+      contentArea.innerHTML = `
+        <div style="display:flex; gap:20px; flex-wrap:wrap; max-width:900px;">
+          <div class="card" style="flex:1; min-width:260px;">
+            <div class="card-header"><h3>Patient Info</h3></div>
+            <div class="flex-row gap-md" style="margin-bottom:14px;">
+              <div class="avatar avatar-lg">${patient.name[0]}</div>
+              <div>
+                <strong>${patient.name}</strong><br>
+                <span style="color:var(--text-gray); font-size:13px;">${patient.email}</span>
+              </div>
+            </div>
+            <div style="font-size:13px; color:var(--text-gray); margin-bottom:16px;">
+              <strong style="color:var(--text-dark);">Appointment:</strong> ${appt.date} at ${appt.time} &middot; Home Visit<br>
+              <strong style="color:var(--text-dark);">Address:</strong> ${appt.address || 'Not provided'}<br>
+              <strong style="color:var(--text-dark);">Patient's Notes:</strong> ${appt.notes && !appt.consultationSaved ? appt.notes : (appt.notes || 'None')}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Consultation Notes</label>
+              <textarea class="form-textarea" id="consult-notes-input" placeholder="What was discussed, observations, etc."></textarea>
+            </div>
+            <button class="btn btn-secondary" style="width:100%;" id="save-notes-btn">Save Notes</button>
+          </div>
+
+          <div class="card" style="flex:1.3; min-width:320px;">
+            <div class="card-header"><h3>Prescription for ${patient.name}</h3></div>
+
+            <div class="form-group">
+              <label class="form-label">Diagnosis</label>
+              <input type="text" class="form-input" id="diagnosis-input" placeholder="e.g. Mild seasonal allergy">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Medicines</label>
+              <div id="medicine-rows"></div>
+              <button class="btn btn-outline action-btn-sm" id="add-medicine-btn" type="button">+ Add Medicine</button>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Instructions</label>
+              <textarea class="form-textarea" id="instructions-input" placeholder="e.g. Take after food. Avoid dust exposure."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Doctor's Notes (optional)</label>
+              <textarea class="form-textarea" id="doctor-notes-input" placeholder="Any additional notes..."></textarea>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%;" id="issue-btn">
+              <i class="fa-solid fa-file-prescription"></i> Issue Prescription
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('save-notes-btn').addEventListener('click', () => {
+        const notes = document.getElementById('consult-notes-input').value;
+        MediConnectDB.updateAppointmentNotes(appt.id, notes);
+        showToast('Consultation notes saved.');
+      });
+
+      function addMedicineRow() {
+        const row = document.createElement('div');
+        row.className = 'med-row';
+        row.innerHTML = `
+          <select class="form-select med-name">${medicineOptions}</select>
+          <input type="text" class="form-input med-dosage" placeholder="Dosage (e.g. 10mg)">
+          <input type="text" class="form-input med-frequency" placeholder="Frequency (e.g. Once daily)">
+          <input type="text" class="form-input med-duration" placeholder="Duration (e.g. 5 days)">
+          <button type="button" class="btn btn-outline action-btn-sm" onclick="this.parentElement.remove()">✕</button>
+        `;
+        document.getElementById('medicine-rows').appendChild(row);
+      }
+      document.getElementById('add-medicine-btn').addEventListener('click', addMedicineRow);
+      addMedicineRow();
+
+      document.getElementById('issue-btn').addEventListener('click', () => {
+        const diagnosis = document.getElementById('diagnosis-input').value;
+        const instructions = document.getElementById('instructions-input').value;
+        const notes = document.getElementById('doctor-notes-input').value;
+
+        if (!diagnosis) {
+          showToast('Please enter a diagnosis.', 'error');
+          return;
+        }
+
+        const medicines = [...document.querySelectorAll('.med-row')].map(row => ({
+          name: row.querySelector('.med-name').value,
+          dosage: row.querySelector('.med-dosage').value,
+          frequency: row.querySelector('.med-frequency').value,
+          duration: row.querySelector('.med-duration').value,
+        }));
+
+        if (medicines.some(m => !m.dosage || !m.frequency || !m.duration)) {
+          showToast('Please fill in every medicine field (dosage, frequency, duration).', 'error');
+          return;
+        }
+
+        MediConnectDB.createPrescription({
+          appointmentId: appt.id,
+          patientId: appt.patientId,
+          doctorId: appt.doctorId,
+          diagnosis, medicines, instructions, notes,
+        });
+        MediConnectDB.updateAppointmentStatus(appt.id, 'completed');
+
+        showToast('Prescription issued successfully!');
+        setTimeout(() => { window.location.href = 'appointments.html'; }, 1200);
+      });
+    }
+  </script>
+</body>
+</html>

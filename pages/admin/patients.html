@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Patient Management | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<div class="modal-overlay" id="patient-modal">
+  <div class="modal" style="width:360px;">
+    <button class="modal-close" onclick="document.getElementById('patient-modal').classList.remove('active')">&times;</button>
+    <h2>Patient Details</h2>
+    <div id="patient-modal-body" style="font-size:13.5px; color:var(--text-dark); line-height:1.9;"></div>
+  </div>
+</div>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="filter-row">
+          <input type="text" class="form-input" id="search-input" placeholder="Search patients by name or email...">
+        </div>
+        <div class="card table-wrap">
+          <table class="table">
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/modal.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('admin');
+    renderDashboardShell({ role: 'admin', navItems: ADMIN_NAV, activeHref: 'patients.html', pageTitle: 'Patient Management' });
+
+    function render() {
+      const term = document.getElementById('search-input').value.toLowerCase();
+      let list = MediConnectDB.getAllPatients();
+      if (term) list = list.filter(p => p.name.toLowerCase().includes(term) || p.email.toLowerCase().includes(term) || p.phone.includes(term));
+
+      document.getElementById('tbody').innerHTML = list.map(p => `
+        <tr>
+  <td>${p.name}</td>
+  <td>${p.email}</td>
+  <td>${p.phone}</td>
+  <td><span class="badge badge-${p.active ? 'active' : 'inactive'}">${p.active ? 'Active' : 'Inactive'}</span></td>
+  <td>
+    <button class="btn btn-outline action-btn-sm" onclick="viewPatient('${p.id}')">View</button>
+    <button class="btn btn-outline action-btn-sm" onclick="toggleActive('${p.id}')">
+      ${p.active ? 'Deactivate' : 'Activate'}
+    </button>
+    </td>
+    </tr>
+      `).join('');
+    }
+
+    function toggleActive(id) {
+  const p = MediConnectDB.getPatientById(id);
+  const action = p.active ? 'Deactivate' : 'Activate';
+  if (!p.active) {
+    MediConnectDB.togglePatientActive(id);
+    showToast(`${p.name} activated.`);
+    render();
+    return;
+  }
+  confirmAction(`Deactivate ${p.name}'s account?`, () => {
+    MediConnectDB.togglePatientActive(id);
+    showToast(`${p.name} deactivated.`);
+    render();
+  });
+}
+function viewPatient(id) {
+  const p = MediConnectDB.getPatientById(id);
+  const appts = MediConnectDB.getAppointments({ patientId: id });
+  document.getElementById('patient-modal-body').innerHTML = `
+    <strong>Name:</strong> ${p.name}<br>
+    <strong>Email:</strong> ${p.email}<br>
+    <strong>Phone:</strong> ${p.phone}<br>
+    <strong>Status:</strong> <span class="badge badge-${p.active ? 'active' : 'inactive'}">${p.active ? 'Active' : 'Inactive'}</span><br>
+    <strong>Total Appointments:</strong> ${appts.length}
+  `;
+  document.getElementById('patient-modal').classList.add('active');
+}
+document.getElementById('patient-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'patient-modal') e.target.classList.remove('active');
+});
+    document.getElementById('search-input').addEventListener('input', render);
+    withLoading('table-wrap', render);
+  </script>
+</body>
+</html>

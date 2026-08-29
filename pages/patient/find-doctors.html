@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Find Doctors | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="filter-row">
+          <input type="text" class="form-input" id="search-input" placeholder="Search by doctor name or specialization...">
+          <select class="form-select" id="specialization-filter">
+            <option value="">All Specializations</option>
+          </select>
+        </div>
+        <div class="doctor-grid" id="doctor-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('patient');
+    renderDashboardShell({ role: 'patient', navItems: PATIENT_NAV, activeHref: 'find-doctors.html', pageTitle: 'Find Doctors' });
+
+    function populateSpecializationFilter() {
+      const doctors = MediConnectDB.getApprovedDoctors();
+      const specializations = [...new Set(doctors.map(d => d.specialization))];
+      const select = document.getElementById('specialization-filter');
+      specializations.forEach(spec => {
+        const opt = document.createElement('option');
+        opt.value = spec;
+        opt.textContent = spec;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderDoctorGrid() {
+      const searchTerm = document.getElementById('search-input').value.toLowerCase();
+      const specialization = document.getElementById('specialization-filter').value;
+
+      let doctors = MediConnectDB.getApprovedDoctors();
+      if (specialization) doctors = doctors.filter(d => d.specialization === specialization);
+      if (searchTerm) {
+        doctors = doctors.filter(d =>
+          d.name.toLowerCase().includes(searchTerm) ||
+          d.specialization.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      const grid = document.getElementById('doctor-grid');
+      if (doctors.length === 0) {
+        grid.innerHTML = `
+          <div class="card empty-state" style="grid-column: 1 / -1;">
+            <i class="fa-solid fa-user-doctor"></i>
+            <h4>No doctors found</h4>
+            <p>Try a different search term or specialization.</p>
+          </div>
+        `;
+        return;
+      }
+
+  grid.innerHTML = doctors.map(d => `
+  <div class="doctor-card">
+    ${doctorAvatarHTML(d, 'avatar-lg')}
+    <h4>${d.name}</h4>
+    <div class="specialization">${d.specialization}</div>
+    <div class="nmc-tag">NMC: ${d.nmcNumber}</div>
+    <div class="rating-row">
+      <i class="fa-solid fa-star"></i> ${d.rating.toFixed(1)}
+      <span class="review-count">(${d.reviewCount} reviews)</span>
+    </div>
+    <div class="meta-row">
+      <span><i class="fa-solid fa-briefcase"></i>${d.experienceYears} yrs</span>
+      <span><i class="fa-solid fa-money-bill"></i>Rs. ${d.fee}</span>
+    </div>
+    <div class="hospital-tag"><i class="fa-solid fa-hospital"></i> ${d.hospital}</div>
+    <a href="doctor-profile.html?doctorId=${d.id}" class="btn btn-primary" style="width:100%; display:block; text-align:center;">View &amp; Book</a>
+  </div>
+`).join('');
+    }
+
+    document.getElementById('search-input').addEventListener('input', renderDoctorGrid);
+    document.getElementById('specialization-filter').addEventListener('change', renderDoctorGrid);
+
+   populateSpecializationFilter();
+   withLoading('doctor-grid', renderDoctorGrid);
+  </script>
+</body>
+</html>

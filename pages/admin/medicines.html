@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Medicine Catalogue | MediConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="topbar-container"></div>
+      <div class="content-area">
+        <div class="filter-row" style="justify-content:space-between;">
+          <input type="text" class="form-input" id="search-input" placeholder="Search medicines..." style="max-width:280px;">
+          <button class="btn btn-primary" id="add-btn"><i class="fa-solid fa-plus"></i> Add Medicine</button>
+        </div>
+        <div class="card table-wrap">
+          <table class="table">
+            <thead><tr><th>Name</th><th>Category</th><th>Action</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="med-modal">
+    <div class="modal">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <h2 id="modal-title">Add Medicine</h2>
+      <input type="hidden" id="med-id">
+      <div class="form-group">
+        <label class="form-label">Medicine Name</label>
+        <input type="text" class="form-input" id="med-name" placeholder="e.g. Paracetamol">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <input type="text" class="form-input" id="med-category" placeholder="e.g. Painkiller">
+      </div>
+      <button class="btn btn-primary" style="width:100%;" id="save-med-btn">Save</button>
+    </div>
+  </div>
+
+  <script src="../../js/session.js"></script>
+  <script src="../../js/data.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="../../js/toast.js"></script>
+  <script src="../../js/modal.js"></script>
+  <script src="../../js/loading.js"></script>
+  <script>
+    requireAuth('admin');
+    renderDashboardShell({ role: 'admin', navItems: ADMIN_NAV, activeHref: 'medicines.html', pageTitle: 'Medicine Catalogue' });
+
+    const modal = document.getElementById('med-modal');
+
+    function render() {
+      const term = document.getElementById('search-input').value.toLowerCase();
+      let list = MediConnectDB.getMedicines();
+      if (term) list = list.filter(m => m.name.toLowerCase().includes(term) || m.category.toLowerCase().includes(term));
+
+      document.getElementById('tbody').innerHTML = list.map(m => `
+        <tr>
+          <td>${m.name}</td>
+          <td>${m.category}</td>
+          <td class="flex-row gap-sm">
+            <button class="btn btn-outline action-btn-sm" onclick="openEdit('${m.id}')"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-outline action-btn-sm" onclick="deleteMed('${m.id}')"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openAdd() {
+      document.getElementById('modal-title').textContent = 'Add Medicine';
+      document.getElementById('med-id').value = '';
+      document.getElementById('med-name').value = '';
+      document.getElementById('med-category').value = '';
+      modal.classList.add('active');
+    }
+
+    function openEdit(id) {
+      const m = MediConnectDB.getMedicines().find(x => x.id === id);
+      document.getElementById('modal-title').textContent = 'Edit Medicine';
+      document.getElementById('med-id').value = m.id;
+      document.getElementById('med-name').value = m.name;
+      document.getElementById('med-category').value = m.category;
+      modal.classList.add('active');
+    }
+
+   function deleteMed(id) {
+  const m = MediConnectDB.getMedicines().find(x => x.id === id);
+  confirmAction(`Delete "${m.name}" from the catalogue?`, () => {
+    MediConnectDB.deleteMedicine(id);
+    showToast('Medicine deleted.');
+    withLoading('table-wrap', render);
+  });
+}
+
+    document.getElementById('add-btn').addEventListener('click', openAdd);
+    document.getElementById('modal-close').addEventListener('click', () => modal.classList.remove('active'));
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+    document.getElementById('save-med-btn').addEventListener('click', () => {
+      const id = document.getElementById('med-id').value;
+      const name = document.getElementById('med-name').value.trim();
+      const category = document.getElementById('med-category').value.trim();
+
+      if (!name || !category) {
+        showToast('Please fill in both fields.', 'error');
+        return;
+      }
+
+      if (id) {
+        MediConnectDB.updateMedicine(id, { name, category });
+        showToast('Medicine updated.');
+      } else {
+        MediConnectDB.addMedicine({ name, category });
+        showToast('Medicine added.');
+      }
+      modal.classList.remove('active');
+     withLoading('table-wrap', render);
+    });
+
+    document.getElementById('search-input').addEventListener('input', render);
+    render();
+  </script>
+</body>
+</html>
