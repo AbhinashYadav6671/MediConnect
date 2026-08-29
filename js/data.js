@@ -172,6 +172,11 @@ function saveDB(db) {
     }
   }
 }
+function nextId(db, type) {
+  const prefix = { patient: 'P', doctor: 'D', appointment: 'A', prescription: 'RX', medicine: 'M', admin: 'ADMIN' }[type];
+  const num = db.meta.nextId[type]++;
+  return `${prefix}${num}`;
+}
 // ============================================================
 // PUBLIC API — every page uses only these functions
 // ============================================================
